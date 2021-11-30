@@ -1,0 +1,91 @@
+#!/usr/bin/python
+
+import asyncio
+import random
+import sys
+
+SERVER = ( '127.0.0.1', 8080 )
+
+def generanteRandomData( ):
+    Mega = 1024 * 1024
+    size = random.randint( Mega, Mega * 10 )
+    data = bytes( size )
+
+    return ( size, '/UNA/RUTA/ABSOLUTA/CUALQUIERA', data )
+
+
+async def readData( reader: asyncio.StreamReader, seps = 1 ) -> bytearray:
+    buffer = bytearray( )
+
+    while True:
+        readed = await reader.read( 1 )
+        buffer += readed
+        if buffer[-1:] == b'\x00': break
+
+    return buffer[:-1]
+
+async def uploadData( id, reader, writer, data ):
+    print( f'{id} - Recibido OK, subiendo datos' )
+    writer.write( data )
+    print( f'{id} - Enviando datos' )
+    await writer.drain( )
+    print( f'{id} - Datos enviados' )
+
+    dataReaded = await readData( reader )
+
+    if dataReaded.startswith( b'OK ' ):
+        print( f'{id} - Recibido:', dataReaded.decode( ) )
+
+    else:
+        print( f'{id} - ERROR recibido:', dataReaded.decode( ) )
+
+
+async def sendFile( id = 0, file = None ):
+    reader, writer = await asyncio.open_connection( SERVER[0], SERVER[1] )
+
+    size, path, data = generanteRandomData( )
+
+    outData = str( size ) + '\x00' + path + '\x00'
+    print( f'{id} - Enviando <{outData}>' )
+    outData = outData.encode( )
+    writer.write( outData )
+    await writer.drain( )
+    print( f'{1} - Mensaje enviado' )
+
+    bytesReaded = await readData( reader )
+
+    if bytesReaded != b'OK':
+        print( id, '-', bytesReaded.decode( ) )
+
+    else:
+        await uploadData( id, reader, writer, data )
+
+    print( f'{id} - Cerrando conexion' )
+    writer.close( )
+    await writer.wait_closed( )
+
+
+async def main( ):
+    childs = int( sys.argv[1] )
+    tasks = [ ]
+
+    for child in range( 0, childs ):
+        tasks.extend( [ asyncio.create_task( sendFile( child ) ) ] )
+
+    await asyncio.gather( *tasks )
+    print( 'Subida terminada' )
+
+
+if len( sys.argv ) < 2:
+    print( 'Uso: upload NUM_HILOS' )
+    exit( 1 )
+
+childs = int( sys.argv[1] )
+if childs < 1:
+    print( 'Uso: upload NUM_HILOS' )
+    exit( 1 )
+
+if childs == 1:
+    asyncio.run( sendFile( ) )
+else:
+    asyncio.run( main( ) )

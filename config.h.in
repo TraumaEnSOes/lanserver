@@ -1,0 +1,7 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#define TMP_BUFFER_SIZE @TMP_BUFFER_SIZE@
+#define HEADER_BUFFER_SIZE @HEADER_BUFFER_SIZE@
+
+#endif
